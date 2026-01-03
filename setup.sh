@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 uname -a | grep Darwin 2>&1 > /dev/null
 if [ $? -ne 0 ]; then
