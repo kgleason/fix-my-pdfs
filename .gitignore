@@ -268,3 +268,4 @@ tagged-files/*
 !ocr-files/.gitkeep
 !original-files/.gitkeep
 !tagged-files/.gitkeep
+.DS_Store
