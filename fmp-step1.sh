@@ -11,6 +11,8 @@ read QUIT
 
 [[ ${QUIT} == 'quit' ]] && exit 1
 
+[[ -d logs ]] || mkdir -p logs
+
 for FILE in original-files/*; do
   FILENAME=$(basename ${FILE})
   SHORTFILE="${FILENAME%.*}"
@@ -18,10 +20,14 @@ for FILE in original-files/*; do
   # Clean up the file name to remove odd characters and newlines
   CLEAN_FILENAME=$(echo "${FILENAME}" | tr '\n\r' ' ' | tr -s ' ')
 
-  ocrmypdf -q --title "${TITLE}" --output-type pdfa "${FILE}" ocr-files/"${FILENAME}" &> /dev/null
+  ocrmypdf -q --title "${TITLE}" --output-type pdf "${FILE}" ocr-files/"${FILENAME}" &> logs/"${TITLE}".log 
 
   # Exit code 6 means that text is already there, I think
-  [ $? -eq 6 ] && ocrmypdf -q --skip-text --title "${TITLE}" --output-type pdfa "${FILE}" ocr-files/"${FILENAME}" &> /dev/null
+  if [ $? -ne 0 ]; then
+	echo "Trying "${FILE}" again with different parameters" &> logs/"${TITLE}".log
+	 ocrmypdf -q --skip-text --title "${TITLE}" --output-type pdf "${FILE}" ocr-files/"${FILENAME}" &> logs/"${TITLE}".log 
+
+  fi
 
   echo "Completed ${FILE}"
 
