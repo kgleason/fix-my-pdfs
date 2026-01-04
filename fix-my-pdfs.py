@@ -134,7 +134,7 @@ def get_or_create_title(pdf_path, pdf):
     title = Path(pdf_path).stem
     # Clean up title - remove newlines and extra whitespace
     title = ' '.join(title.split())
-    print(f"  ℹ No title found - using filename: {title}")
+    print(f"  ℹ️ No title found - using filename: {title}")
     return title
 
 def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_text:bool = False):
