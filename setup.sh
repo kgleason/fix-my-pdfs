@@ -18,6 +18,7 @@ which python 2>&1 > /dev/null
 if [ $? -ne 0 ]; then
   echo "Installing python."
   brew -q install python@3.13
+fi
 
 python -m venv .venv && source .venv/bin/activate
 if [ $? -ne 0 ]; then
@@ -29,7 +30,7 @@ fi
 pip install -r requirements.txt
 if [ $? -eq 0 ]; then
   echo "Everything is all set. Put your PDFs in the 'original_files' folder"
-  echo "Then run `./fixmypdfs.sh`"
+  echo "Then run `./fmp-step1.sh`"
   exit 0
 fi
 
