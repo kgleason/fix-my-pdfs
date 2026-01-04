@@ -3,6 +3,8 @@
 ## Disclaimer
 The output from this WILL NOT create PDFs that 100% 508 compliant. This is simply designed to help take some of the more menial tasks out of the way.
 
+This really hasn't been tested extensively.
+
 ## Requirements
   * homebrew (if you are on a Mac)
   * python3.10 or higher
