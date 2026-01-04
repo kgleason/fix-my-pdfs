@@ -22,7 +22,6 @@ for FILE in original-files/*; do
 
   ocrmypdf -q --title "${TITLE}" --output-type pdf "${FILE}" ocr-files/"${FILENAME}" &> logs/"${TITLE}".log 
 
-  # Exit code 6 means that text is already there, I think
   if [ $? -ne 0 ]; then
 	echo "Trying "${FILE}" again with different parameters" &> logs/"${TITLE}".log
 	 ocrmypdf -q --skip-text --title "${TITLE}" --output-type pdf "${FILE}" ocr-files/"${FILENAME}" &> logs/"${TITLE}".log 
