@@ -147,7 +147,7 @@ def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_te
             ret_bool = ec
         return ret_bool
     except ocrmypdf.exceptions.ColorConversionNeededError:
-        print("  ℹ️Info: Caught a color conversion exception. Outputting normal PDF")
+        print("  ℹ️ Info: Caught a color conversion exception. Outputting normal PDF")
         return ocr_single_pdf(pdf_path, output_path, 'pdf')
     except ocrmypdf.MissingDependencyError as exc:
         print(f"  ⚠️ Warning: Missing dependency detected: {exc.message}")
@@ -162,7 +162,7 @@ def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_te
         print(f"  ⚠️ Warning: Unable to open output file {output_path}.")
         return False
     except ocrmypdf.PriorOcrFoundError:
-        print("  ℹ️Info: Prior OCR detected. Running with skip text")
+        print("  ℹ️ Info: Prior OCR detected. Running with skip text")
         return ocr_single_pdf(pdf_path, output_path, pdf_type, True)
     except ocrmypdf.SubprocessOutputError:
         print("  ⚠️ Warning: Subprocess Error")
