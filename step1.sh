@@ -9,16 +9,20 @@ echo "If you want to not do this, enter quit below"
 echo "Otherwise press enter to get the process started"
 read QUIT
 
-[ ${QUIT} == 'quit' ] && exit 1
+[[ ${QUIT} == 'quit' ]] && exit 1
 
 for FILE in original-files/*; do
-  FILENAME=${basename}
-  SHORTFILE="${basename%.*}"
-  TITLE=$(echo $SHORTFILE | sed s'/_/ /g')
+  FILENAME=$(basename ${FILE})
+  SHORTFILE="${FILENAME%.*}"
+  TITLE=$(echo "${SHORTFILE}" | sed s'/_/ /g')
+  # Clean up the file name to remove odd characters and newlines
+  CLEAN_FILENAME=$(echo "${FILENAME}" | tr '\n\r' ' ' | tr -s ' ')
 
-  ocrmypdf -q --title ${TITLE} --output-type pdfa ${FILE} ocr-files/${FILENAME}
+  ocrmypdf -q --title "${TITLE}" --output-type pdfa "${FILE}" ocr-files/"${FILENAME}" &> /dev/null
 
   # Exit code 6 means that text is already there, I think
-  [ $? -eq 6 ] && ocrmypdf -q --skip-text --title ${TITLE} --output-type pdfa ${FILE} ocr-files/${FILENAME}
+  [ $? -eq 6 ] && ocrmypdf -q --skip-text --title "${TITLE}" --output-type pdfa "${FILE}" ocr-files/"${FILENAME}" &> /dev/null
+
+  echo "Completed ${FILE}"
 
 done

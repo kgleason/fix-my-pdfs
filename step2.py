@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Auto-tag PDFs with structure detection and metadata
-Processes all PDFs in ocr-files/ directory and outputs to tagged-pdfs/
+Processes all PDFs in ocr-files/ directory and outputs to tagged-files/
 Requires: pip install pdfplumber pikepdf
 """
 
@@ -123,6 +123,8 @@ def get_or_create_title(pdf_path, pdf):
         with pdf.open_metadata() as meta:
             if meta.get('dc:title'):
                 title = str(meta['dc:title'])
+                # Clean up title - remove newlines and extra whitespace
+                title = ' '.join(title.split())
                 print(f"  ✓ Existing title: {title}")
                 return title
     except:
@@ -130,16 +132,14 @@ def get_or_create_title(pdf_path, pdf):
 
     # Use filename without extension
     title = Path(pdf_path).stem
+    # Clean up title - remove newlines and extra whitespace
+    title = ' '.join(title.split())
     print(f"  ℹ No title found - using filename: {title}")
     return title
 
 
 def process_single_pdf(pdf_path, output_path):
     """Add basic tag structure to a single PDF"""
-
-    print(f"\n{'=' * 60}")
-    print(f"Processing: {Path(pdf_path).name}")
-    print(f"{'=' * 60}")
 
     # Check for extractable text
     has_text = has_extractable_text(pdf_path)
@@ -191,124 +191,193 @@ def process_single_pdf(pdf_path, output_path):
     else:
         pdf.Root.MarkInfo.Marked = True
 
-    # Create structure tree root
-    struct_tree_root = Dictionary(
-        Type=Name.StructTreeRoot,
-        K=Array()
-    )
+    # Create a simplified structure tree without explicit parent references
+    # This avoids circular reference issues
+    print(f"  Creating structure elements...")
 
-    # Add a Document element
-    doc_element = Dictionary(
-        Type=Name.StructElem,
-        S=Name.Document,
-        P=struct_tree_root,
-        K=Array()
-    )
+    struct_elems = []
 
     # Determine heading levels based on font size
     heading_blocks = [b for b in all_structures if b['type'] == 'heading']
     size_to_level = {}
     if heading_blocks:
         sizes = sorted(set(b.get('size', 0) for b in heading_blocks), reverse=True)
-        size_to_level = {size: f'H{min(i + 1, 6)}' for i, size in enumerate(sizes)}
+        size_to_level = {size: min(i + 1, 6) for i, size in enumerate(sizes)}
 
     # Track if we're in a list
-    current_list = None
+    current_list_items = []
 
-    # Add structure elements
-    for block in all_structures:
-        if block['type'] == 'heading':
-            # Close any open list
-            if current_list:
-                doc_element.K.append(current_list)
-                current_list = None
+    # Create structure elements
+    for idx, block in enumerate(all_structures):
+        if idx % 10 == 0 and idx > 0:
+            print(f"    Processed {idx}/{len(all_structures)} elements...")
 
-            level = size_to_level.get(block.get('size', 0), 'H1')
-            elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name(level),
-                P=doc_element,
-                K=Array()
-            )
-            doc_element.K.append(elem)
+        try:
+            if block['type'] == 'heading':
+                # Close any open list first
+                if current_list_items:
+                    list_elem = pdf.make_indirect(Dictionary(
+                        Type=Name.StructElem,
+                        S=Name.L,
+                        K=Array(current_list_items)
+                    ))
+                    struct_elems.append(list_elem)
+                    current_list_items = []
 
-        elif block['type'] == 'table':
-            # Close any open list
-            if current_list:
-                doc_element.K.append(current_list)
-                current_list = None
-
-            elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.Table,
-                P=doc_element,
-                K=Array()
-            )
-            doc_element.K.append(elem)
-
-        elif block['type'] == 'list_item':
-            # Create new list if needed
-            if not current_list:
-                current_list = Dictionary(
+                level_num = size_to_level.get(block.get('size', 0), 1)
+                elem = pdf.make_indirect(Dictionary(
                     Type=Name.StructElem,
-                    S=Name.L,  # List
-                    P=doc_element,
+                    S=Name(f'/H{level_num}'),
                     K=Array()
-                )
+                ))
+                struct_elems.append(elem)
 
-            # Add list item
-            li = Dictionary(
-                Type=Name.StructElem,
-                S=Name.LI,  # List Item
-                P=current_list,
-                K=Array()
-            )
-            current_list.K.append(li)
+            elif block['type'] == 'table':
+                # Close any open list first
+                if current_list_items:
+                    list_elem = pdf.make_indirect(Dictionary(
+                        Type=Name.StructElem,
+                        S=Name.L,
+                        K=Array(current_list_items)
+                    ))
+                    struct_elems.append(list_elem)
+                    current_list_items = []
 
-        else:  # paragraph
-            # Close any open list
-            if current_list:
-                doc_element.K.append(current_list)
-                current_list = None
+                elem = pdf.make_indirect(Dictionary(
+                    Type=Name.StructElem,
+                    S=Name.Table,
+                    K=Array()
+                ))
+                struct_elems.append(elem)
 
-            elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.P,
-                P=doc_element,
-                K=Array()
-            )
-            doc_element.K.append(elem)
+            elif block['type'] == 'list_item':
+                # Add to current list
+                li = pdf.make_indirect(Dictionary(
+                    Type=Name.StructElem,
+                    S=Name.LI,
+                    K=Array()
+                ))
+                current_list_items.append(li)
+
+            else:  # paragraph
+                # Close any open list first
+                if current_list_items:
+                    list_elem = pdf.make_indirect(Dictionary(
+                        Type=Name.StructElem,
+                        S=Name.L,
+                        K=Array(current_list_items)
+                    ))
+                    struct_elems.append(list_elem)
+                    current_list_items = []
+
+                elem = pdf.make_indirect(Dictionary(
+                    Type=Name.StructElem,
+                    S=Name.P,
+                    K=Array()
+                ))
+                struct_elems.append(elem)
+        except Exception as e:
+            print(f"    ⚠ Warning: Could not create element {idx} ({block['type']}): {e}")
+            continue
 
     # Close final list if open
-    if current_list:
-        doc_element.K.append(current_list)
+    if current_list_items:
+        list_elem = pdf.make_indirect(Dictionary(
+            Type=Name.StructElem,
+            S=Name.L,
+            K=Array(current_list_items)
+        ))
+        struct_elems.append(list_elem)
 
-    struct_tree_root.K.append(doc_element)
+    print(f"  Finalizing structure tree...")
+
+    # Create document element with all children
+    doc_element = pdf.make_indirect(Dictionary(
+        Type=Name.StructElem,
+        S=Name.Document,
+        K=Array(struct_elems)
+    ))
+
+    # Create structure tree root
+    struct_tree_root = Dictionary(
+        Type=Name.StructTreeRoot,
+        K=Array([doc_element])
+    )
+
     pdf.Root.StructTreeRoot = struct_tree_root
 
     # Save
-    pdf.save(output_path)
+    print(f"  Saving PDF (this may take a moment for large files)...")
+    import signal
+
+    class TimeoutError(Exception):
+        pass
+
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Save operation timed out")
+
+    # Set up timeout (30 seconds)
+    if hasattr(signal, 'SIGALRM'):  # Unix only
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(30)
+
+    try:
+        # Try minimal save options
+        pdf.save(output_path,
+                 compress_streams=False,
+                 stream_decode_level=pikepdf.StreamDecodeLevel.none,
+                 object_stream_mode=pikepdf.ObjectStreamMode.disable,
+                 linearize=False)
+
+        if hasattr(signal, 'SIGALRM'):
+            signal.alarm(0)  # Cancel alarm
+
+    except TimeoutError:
+        if hasattr(signal, 'SIGALRM'):
+            signal.alarm(0)
+        print(f"    ⚠ Save timed out - trying without structure tree...")
+        # Remove structure tree and try again
+        if hasattr(pdf.Root, 'StructTreeRoot'):
+            del pdf.Root.StructTreeRoot
+        pdf.save(output_path, compress_streams=False)
+        print(f"    ⚠ Saved without structure tags due to timeout")
+        return
+    except Exception as e:
+        if hasattr(signal, 'SIGALRM'):
+            signal.alarm(0)
+        print(f"    Error during save: {e}")
+        raise
+
     print(f"  ✓ Saved to: {output_path}")
     print(f"  ✓ Title: {title}")
 
 
-def process_directory(input_dir='ocr-files', output_dir='tagged-pdfs'):
+def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
     """Process all PDFs in input directory"""
 
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
-    # Find all PDF files
-    pdf_files = glob.glob(os.path.join(input_dir, '*.pdf'))
+    # Find all PDF files using os.listdir to avoid glob issues with special chars
+    try:
+        all_files = os.listdir(input_dir)
+        pdf_files = sorted([os.path.join(input_dir, f) for f in all_files if f.lower().endswith('.pdf')])
+    except Exception as e:
+        print(f"Error reading directory: {e}")
+        return
 
     if not pdf_files:
         print(f"No PDF files found in '{input_dir}' directory")
         print(f"Please create the directory and add PDF files to process")
         return
 
-    print(f"\n{'=' * 60}")
+    # Calculate max filename length for formatting (using sanitized names)
+    max_name_len = max(len(' '.join(Path(pdf).name.split())) for pdf in pdf_files)
+    separator_len = max(60, max_name_len + 20)
+
+    print(f"\n{'=' * separator_len}")
     print(f"PDF Auto-Tagger")
-    print(f"{'=' * 60}")
+    print(f"{'=' * separator_len}")
     print(f"Input directory:  {input_dir}")
     print(f"Output directory: {output_dir}")
     print(f"Found {len(pdf_files)} PDF(s) to process")
@@ -320,22 +389,36 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-pdfs'):
     for i, pdf_path in enumerate(pdf_files, 1):
         try:
             filename = Path(pdf_path).name
-            output_path = os.path.join(output_dir, filename)
+            # Clean filename for display (remove any embedded newlines/whitespace)
+            display_filename = ' '.join(filename.split())
 
-            print(f"\n[{i}/{len(pdf_files)}] {filename}")
+            # Sanitize output filename (replace problematic characters)
+            safe_filename = filename.replace('\n', ' ').replace('\r', ' ')
+            # Collapse multiple spaces
+            safe_filename = ' '.join(safe_filename.split())
+
+            output_path = os.path.join(output_dir, safe_filename)
+
+            # Calculate dynamic separator based on filename length
+            display_separator_len = max(60, len(display_filename) + 10)
+
+            print(f"\n{'=' * display_separator_len}")
+            print(f"[{i}/{len(pdf_files)}] {display_filename}")
+            print(f"{'=' * display_separator_len}")
+
             process_single_pdf(pdf_path, output_path)
             successful += 1
 
         except Exception as e:
             failed += 1
-            print(f"  ✗ Error processing {filename}: {e}")
+            print(f"  ✗ Error processing {display_filename}: {e}")
             import traceback
             traceback.print_exc()
 
     # Summary
-    print(f"\n{'=' * 60}")
+    print(f"\n{'=' * separator_len}")
     print(f"Processing Complete")
-    print(f"{'=' * 60}")
+    print(f"{'=' * separator_len}")
     print(f"✓ Successful: {successful}")
     if failed > 0:
         print(f"✗ Failed:     {failed}")
@@ -358,7 +441,7 @@ if __name__ == "__main__":
     if not os.path.exists(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist")
         print(f"\nUsage: python auto_tag_pdf.py [input_dir] [output_dir]")
-        print(f"Default: python auto_tag_pdf.py ocr-files tagged-pdfs")
+        print(f"Default: python auto_tag_pdf.py ocr-files tagged-files")
         sys.exit(1)
 
     try:
