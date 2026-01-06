@@ -177,7 +177,7 @@ def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_te
         print(f"  ⚠️ Warning: File {pdf_path} is already tagged. Skipping")
         return False
 
-def process_single_pdf(pdf_path, output_path):
+def process_single_pdf(pdf_path, output_path, tmp_path):
     """Add basic tag structure to a single PDF"""
 
     # Check for extractable text
@@ -186,11 +186,12 @@ def process_single_pdf(pdf_path, output_path):
 
     if not has_text:
         print("  ⚠️ Warning: No extractable text found!")
-        is_processable = ocr_single_pdf(pdf_path, output_path)
+        is_processable = ocr_single_pdf(pdf_path, tmp_path)
         if not is_processable:
             return None
         else:
             print("  ✅ PDF now has extractable text")
+            pdf_path = tmp_path
     else:
         print("  ✅ PDF has extractable text")
 
@@ -396,11 +397,12 @@ def process_single_pdf(pdf_path, output_path):
     print(f"  ✅ Title: {title}")
 
 
-def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
+def process_directory(input_dir='original-files', output_dir='tagged-files', tmp_dir='ocr_files'):
     """Process all PDFs in input directory"""
 
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(tmp_dir, exist_ok=True)
 
     # Find all PDF files using os.listdir to avoid glob issues with special chars
     try:
@@ -442,6 +444,7 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
             safe_filename = ' '.join(safe_filename.split())
 
             output_path = os.path.join(output_dir, safe_filename)
+            tmp_path = os.path.join(tmp_dir, safe_filename)
 
             # Calculate dynamic separator based on filename length
             display_separator_len = max(60, len(display_filename) + 10)
@@ -450,7 +453,7 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
             print(f"[{i}/{len(pdf_files)}] {display_filename}")
             print(f"{'=' * display_separator_len}")
 
-            process_single_pdf(pdf_path, output_path)
+            process_single_pdf(pdf_path, output_path, tmp_path)
             successful += 1
 
         except Exception as e:
@@ -475,12 +478,14 @@ if __name__ == "__main__":
     import sys
 
     # Allow optional directory arguments
-    if len(sys.argv) >= 2:
+    if len(sys.argv) >= 3:
         input_dir = sys.argv[1]
         output_dir = sys.argv[2] if len(sys.argv) >= 3 else 'tagged-files'
+        tmp_dir = sys.argv[3] if len(sys.argv) >= 3 else 'ocr-files'
     else:
-        input_dir = 'ocr-files'
+        input_dir = 'original-files'
         output_dir = 'tagged-files'
+        tmp_dir = 'ocr-files'
 
     if not os.path.exists(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist")
@@ -489,7 +494,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        process_directory(input_dir, output_dir)
+        process_directory(input_dir=input_dir, output_dir=output_dir, tmp_dir=tmp_dir)
     except KeyboardInterrupt:
         print("\n\nProcessing interrupted by user")
         sys.exit(1)
