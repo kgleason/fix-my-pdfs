@@ -5,13 +5,13 @@ Processes all PDFs in ocr-files/ directory and outputs to tagged-files/
 Requires: pip install pdfplumber pikepdf
 """
 
+import ocrmypdf
 import pdfplumber
 import pikepdf
 from pikepdf import Pdf, Dictionary, Name, Array
 import os
 import re
 from pathlib import Path
-import glob
 
 
 def has_extractable_text(pdf_path):
@@ -24,7 +24,7 @@ def has_extractable_text(pdf_path):
                     return True
         return False
     except Exception as e:
-        print(f"  ⚠ Error checking text: {e}")
+        print(f"  ⚠️ Error checking text: {e}")
         return False
 
 
@@ -125,7 +125,7 @@ def get_or_create_title(pdf_path, pdf):
                 title = str(meta['dc:title'])
                 # Clean up title - remove newlines and extra whitespace
                 title = ' '.join(title.split())
-                print(f"  ✓ Existing title: {title}")
+                print(f"  ✅ Existing title: {title}")
                 return title
     except:
         pass
@@ -134,21 +134,70 @@ def get_or_create_title(pdf_path, pdf):
     title = Path(pdf_path).stem
     # Clean up title - remove newlines and extra whitespace
     title = ' '.join(title.split())
-    print(f"  ℹ No title found - using filename: {title}")
+    print(f"  ℹ️ No title found - using filename: {title}")
     return title
 
+def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_text:bool = False):
+    try:
+        ret_bool = False
+        print(f"pdf type is {pdf_type}")
+        #ec = ocrmypdf.ocr(input_file=pdf_path, output_file=output_path, pdf_type=pdf_type, skip_text=skip_text)
+        ec = ocrmypdf.ocr(input_file=pdf_path, output_file=output_path, skip_text=skip_text)
+        if isinstance(ec, int):
+            ret_bool = True if ec == 0 else False
+        elif isinstance(ec, bool):
+            ret_bool = ec
+        return ret_bool
+    except ocrmypdf.exceptions.ColorConversionNeededError:
+        print("  ℹ️ Info: Caught a color conversion exception. Outputting normal PDF")
+        #return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=skip_text, pdf_type='pdf')
+        return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=skip_text)
+    except ocrmypdf.MissingDependencyError as exc:
+        print(f"  ⚠️ Warning: Missing dependency detected: {exc.message}")
+        return False
+    except ocrmypdf.UnsupportedImageFormatError:
+        print("  ⚠️ Warning: Unsupported image format")
+        return False
+    except ocrmypdf.DpiError:
+        print("  ⚠️ Warning: Dpi Error")
+        return False
+    except ocrmypdf.OutputFileAccessError:
+        print(f"  ⚠️ Warning: Unable to open output file {output_path}.")
+        return False
+    except ocrmypdf.PriorOcrFoundError:
+        print("  ℹ️ Info: Prior OCR detected. Running with skip text")
+        #return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=True, pdf_type=pdf_type)
+        return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=True)
+    except ocrmypdf.SubprocessOutputError:
+        print("  ⚠️ Warning: Subprocess Error")
+        return False
+    except (ocrmypdf.EncryptedPdfError, ocrmypdf.exceptions.DigitalSignatureError):
+        print(f"  ⚠️ Warning: File {pdf_path} is signed or encrypted. Cannot alter")
+        return False
+    except ocrmypdf.exceptions.BadArgsError:
+        print("  ⚠️ Warning: Bad arguments passed to ocrmypdf.ocr()")
+        return False
+    except ocrmypdf.exceptions.TaggedPDFError:
+        print(f"  ⚠️ Warning: File {pdf_path} is already tagged. Skipping")
+        return False
 
-def process_single_pdf(pdf_path, output_path):
+def process_single_pdf(pdf_path, output_path, tmp_path):
     """Add basic tag structure to a single PDF"""
 
     # Check for extractable text
     has_text = has_extractable_text(pdf_path)
+    is_processable = True
 
     if not has_text:
-        print("  ⚠ Warning: No extractable text found!")
-        print("  → Consider running ocrmypdf first")
+        print("  ⚠️ Warning: No extractable text found!")
+        is_processable = ocr_single_pdf(pdf_path=pdf_path, output_path=tmp_path)
+        if not is_processable:
+            return None
+        else:
+            print("  ✅ PDF now has extractable text")
+            pdf_path = tmp_path
     else:
-        print("  ✓ PDF has extractable text")
+        print("  ✅ PDF has extractable text")
 
     # Open PDF
     pdf = Pdf.open(pdf_path)
@@ -277,7 +326,7 @@ def process_single_pdf(pdf_path, output_path):
                 ))
                 struct_elems.append(elem)
         except Exception as e:
-            print(f"    ⚠ Warning: Could not create element {idx} ({block['type']}): {e}")
+            print(f"    ⚠️ Warning: Could not create element {idx} ({block['type']}): {e}")
             continue
 
     # Close final list if open
@@ -335,12 +384,12 @@ def process_single_pdf(pdf_path, output_path):
     except TimeoutError:
         if hasattr(signal, 'SIGALRM'):
             signal.alarm(0)
-        print(f"    ⚠ Save timed out - trying without structure tree...")
+        print(f"    ⚠️ Save timed out - trying without structure tree...")
         # Remove structure tree and try again
         if hasattr(pdf.Root, 'StructTreeRoot'):
             del pdf.Root.StructTreeRoot
         pdf.save(output_path, compress_streams=False)
-        print(f"    ⚠ Saved without structure tags due to timeout")
+        print(f"    ⚠️ Saved without structure tags due to timeout")
         return
     except Exception as e:
         if hasattr(signal, 'SIGALRM'):
@@ -348,15 +397,16 @@ def process_single_pdf(pdf_path, output_path):
         print(f"    Error during save: {e}")
         raise
 
-    print(f"  ✓ Saved to: {output_path}")
-    print(f"  ✓ Title: {title}")
+    print(f"  ✅ Saved to: {output_path}")
+    print(f"  ✅ Title: {title}")
 
 
-def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
+def process_directory(input_dir='original-files', output_dir='tagged-files', tmp_dir='ocr_files'):
     """Process all PDFs in input directory"""
 
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(tmp_dir, exist_ok=True)
 
     # Find all PDF files using os.listdir to avoid glob issues with special chars
     try:
@@ -398,6 +448,7 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
             safe_filename = ' '.join(safe_filename.split())
 
             output_path = os.path.join(output_dir, safe_filename)
+            tmp_path = os.path.join(tmp_dir, safe_filename)
 
             # Calculate dynamic separator based on filename length
             display_separator_len = max(60, len(display_filename) + 10)
@@ -406,7 +457,7 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
             print(f"[{i}/{len(pdf_files)}] {display_filename}")
             print(f"{'=' * display_separator_len}")
 
-            process_single_pdf(pdf_path, output_path)
+            process_single_pdf(pdf_path, output_path, tmp_path)
             successful += 1
 
         except Exception as e:
@@ -419,7 +470,7 @@ def process_directory(input_dir='ocr-files', output_dir='tagged-files'):
     print(f"\n{'=' * separator_len}")
     print(f"Processing Complete")
     print(f"{'=' * separator_len}")
-    print(f"✓ Successful: {successful}")
+    print(f"✅ Successful: {successful}")
     if failed > 0:
         print(f"✗ Failed:     {failed}")
     print(f"\nTagged PDFs saved to: {output_dir}/")
@@ -431,12 +482,14 @@ if __name__ == "__main__":
     import sys
 
     # Allow optional directory arguments
-    if len(sys.argv) >= 2:
+    if len(sys.argv) >= 3:
         input_dir = sys.argv[1]
         output_dir = sys.argv[2] if len(sys.argv) >= 3 else 'tagged-files'
+        tmp_dir = sys.argv[3] if len(sys.argv) >= 3 else 'ocr-files'
     else:
-        input_dir = 'ocr-files'
+        input_dir = 'original-files'
         output_dir = 'tagged-files'
+        tmp_dir = 'ocr-files'
 
     if not os.path.exists(input_dir):
         print(f"Error: Input directory '{input_dir}' does not exist")
@@ -445,7 +498,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     try:
-        process_directory(input_dir, output_dir)
+        process_directory(input_dir=input_dir, output_dir=output_dir, tmp_dir=tmp_dir)
     except KeyboardInterrupt:
         print("\n\nProcessing interrupted by user")
         sys.exit(1)
