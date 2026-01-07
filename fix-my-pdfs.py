@@ -140,7 +140,9 @@ def get_or_create_title(pdf_path, pdf):
 def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_text:bool = False):
     try:
         ret_bool = False
-        ec = ocrmypdf.ocr(pdf_path, output_path, pdf_type=pdf_type, skip_text=skip_text)
+        print(f"pdf type is {pdf_type}")
+        #ec = ocrmypdf.ocr(input_file=pdf_path, output_file=output_path, pdf_type=pdf_type, skip_text=skip_text)
+        ec = ocrmypdf.ocr(input_file=pdf_path, output_file=output_path, skip_text=skip_text)
         if isinstance(ec, int):
             ret_bool = True if ec == 0 else False
         elif isinstance(ec, bool):
@@ -148,7 +150,8 @@ def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_te
         return ret_bool
     except ocrmypdf.exceptions.ColorConversionNeededError:
         print("  ℹ️ Info: Caught a color conversion exception. Outputting normal PDF")
-        return ocr_single_pdf(pdf_path, output_path, 'pdf')
+        #return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=skip_text, pdf_type='pdf')
+        return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=skip_text)
     except ocrmypdf.MissingDependencyError as exc:
         print(f"  ⚠️ Warning: Missing dependency detected: {exc.message}")
         return False
@@ -163,7 +166,8 @@ def ocr_single_pdf(pdf_path:str, output_path:str, pdf_type:str = 'pdfa', skip_te
         return False
     except ocrmypdf.PriorOcrFoundError:
         print("  ℹ️ Info: Prior OCR detected. Running with skip text")
-        return ocr_single_pdf(pdf_path, output_path, pdf_type, True)
+        #return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=True, pdf_type=pdf_type)
+        return ocr_single_pdf(pdf_path=pdf_path, output_path=output_path, skip_text=True)
     except ocrmypdf.SubprocessOutputError:
         print("  ⚠️ Warning: Subprocess Error")
         return False
@@ -186,7 +190,7 @@ def process_single_pdf(pdf_path, output_path, tmp_path):
 
     if not has_text:
         print("  ⚠️ Warning: No extractable text found!")
-        is_processable = ocr_single_pdf(pdf_path, tmp_path)
+        is_processable = ocr_single_pdf(pdf_path=pdf_path, output_path=tmp_path)
         if not is_processable:
             return None
         else:
