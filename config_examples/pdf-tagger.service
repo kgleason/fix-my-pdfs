@@ -1,0 +1,24 @@
+# ============================================================================
+# systemd service file: /etc/systemd/system/pdf-tagger.service
+# ============================================================================
+[Unit]
+Description=PDF Tagger Flask Application
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/your/pdf-tagger
+Environment="PATH=/path/to/your/pdf-tagger/venv/bin"
+EnvironmentFile=/path/to/your/pdf-tagger/.env
+ExecStart=/path/to/your/pdf-tagger/venv/bin/gunicorn --config gunicorn_config.py app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
