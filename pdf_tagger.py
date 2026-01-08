@@ -18,11 +18,13 @@ from models import PDFBlock, ProcessingMessage
 class PDFTagger:
     """Handles PDF tagging operations for a single PDF file"""
 
-    def __init__(self, input_path: str, output_path: str, tmp_path: str, job_id: str = None):
+    def __init__(self, input_path: str, output_path: str, tmp_path: str, job_id: str = None,
+                 original_filename: str = None):
         self.input_path = input_path
         self.output_path = output_path
         self.tmp_path = tmp_path
         self.job_id = job_id
+        self.original_filename = original_filename
         self.pdf: Optional[Pdf] = None
         self.structures: List[PDFBlock] = []
         self.message_queue = None
@@ -145,7 +147,7 @@ class PDFTagger:
         self.log('info', f"Found {len(self.structures)} elements: {headings} headings, "
                          f"{paragraphs} paragraphs, {tables} tables, {lists} list items")
 
-    def get_or_create_title(self) -> str:
+    def get_or_create_title(self, original_filename: str = None) -> str:
         """Get existing title or create from filename"""
         try:
             with self.pdf.open_metadata() as meta:
@@ -157,7 +159,19 @@ class PDFTagger:
         except:
             pass
 
-        title = Path(self.input_path).stem
+        # Use original filename if provided, otherwise extract from path
+        if original_filename:
+            title = Path(original_filename).stem
+        else:
+            # Remove job ID prefix (UUID_filename.pdf -> filename.pdf)
+            filename = Path(self.input_path).stem
+            # Split on underscore and remove first part if it looks like a UUID
+            parts = filename.split('_', 1)
+            if len(parts) > 1 and len(parts[0]) == 36:  # UUID length
+                title = parts[1]
+            else:
+                title = filename
+
         title = ' '.join(title.split())
         self.log('info', f"Using filename as title: {title}")
         return title
@@ -301,8 +315,8 @@ class PDFTagger:
             # Open PDF
             self.pdf = Pdf.open(self.input_path)
 
-            # Get/set title
-            title = self.get_or_create_title()
+            # Get/set title (pass original filename to avoid job ID in title)
+            title = self.get_or_create_title(self.original_filename)
             with self.pdf.open_metadata() as meta:
                 meta['dc:title'] = title
 

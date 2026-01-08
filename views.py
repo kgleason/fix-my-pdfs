@@ -10,7 +10,7 @@ import os
 import uuid
 
 from models import JobStatus
-from .utils import (
+from utils import (
     processing_status,
     processing_queues,
     start_processing_job,
@@ -64,8 +64,8 @@ def upload_file():
     )
     processing_queues[job_id] = queue.Queue()
 
-    # Start background processing
-    start_processing_job(job_id, input_path, output_path, tmp_path)
+    # Start background processing (pass original filename for title)
+    start_processing_job(job_id, input_path, output_path, tmp_path, filename)
 
     return jsonify({'job_id': job_id, 'filename': filename})
 

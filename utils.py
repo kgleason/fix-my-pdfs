@@ -17,7 +17,7 @@ processing_status: Dict[str, JobStatus] = {}
 processing_queues: Dict[str, queue.Queue] = {}
 
 
-def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_path: str):
+def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_path: str, original_filename: str):
     """Background processing function for PDF tagging"""
     try:
         # Update status
@@ -26,7 +26,7 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
             status.status = 'processing'
 
         # Create tagger and set message queue
-        tagger = PDFTagger(input_path, output_path, tmp_path, job_id)
+        tagger = PDFTagger(input_path, output_path, tmp_path, job_id, original_filename)
 
         if job_id in processing_queues:
             tagger.set_message_queue(processing_queues[job_id])
@@ -53,11 +53,11 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
             processing_queues[job_id].put(msg.to_dict())
 
 
-def start_processing_job(job_id: str, input_path: str, output_path: str, tmp_path: str):
+def start_processing_job(job_id: str, input_path: str, output_path: str, tmp_path: str, original_filename: str):
     """Start a background processing job"""
     thread = threading.Thread(
         target=process_pdf_background,
-        args=(job_id, input_path, output_path, tmp_path)
+        args=(job_id, input_path, output_path, tmp_path, original_filename)
     )
     thread.daemon = True
     thread.start()
