@@ -262,10 +262,7 @@ http-client.private.env.json
 .pypirc
 
 # files specific to this project
-ocr-files/*
-original-files/*
-tagged-files/*
-!ocr-files/.gitkeep
-!original-files/.gitkeep
-!tagged-files/.gitkeep
+outputs/
+uploads/
+tmp/
 .DS_Store
