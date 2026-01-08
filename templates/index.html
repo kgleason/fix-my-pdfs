@@ -392,7 +392,40 @@
         // Download button
         downloadBtn.addEventListener('click', () => {
             if (currentJobId) {
-                window.location.href = `/download/${currentJobId}`;
+                // Create a hidden iframe to download without navigation
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = `/download/${currentJobId}`;
+                document.body.appendChild(iframe);
+
+                // Wait a moment for download to start, then clean up and reset
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                    cleanup(currentJobId);
+
+                    // Show success message briefly before reset
+                    const successMsg = document.createElement('div');
+                    successMsg.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #10b981;
+                        color: white;
+                        padding: 16px 24px;
+                        border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        z-index: 1000;
+                        font-weight: 600;
+                    `;
+                    successMsg.textContent = '✓ Download started! Processing another file...';
+                    document.body.appendChild(successMsg);
+
+                    // Reset UI after 2 seconds
+                    setTimeout(() => {
+                        document.body.removeChild(successMsg);
+                        resetUI();
+                    }, 2000);
+                }, 1000);
             }
         });
 
