@@ -1,0 +1,36 @@
+# ============================================================================
+# .dockerignore - Docker Ignore File
+# ============================================================================
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.gitignore
+.mypy_cache
+.pytest_cache
+.hypothesis
+uploads/*
+outputs/*
+tmp/*
+*.pdf
+.env
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
