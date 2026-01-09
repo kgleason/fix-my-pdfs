@@ -1,12 +1,15 @@
 # ============================================================================
 # Dockerfile - Docker Container (Optional)
 # ============================================================================
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# Install system dependencies
+# Install system dependencies including Tesseract OCR
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

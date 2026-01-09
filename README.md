@@ -25,7 +25,24 @@ pdf-tagger/
 
 ## Pre-flight Check
 
-Before building, test that all imports work:
+Before building, install system dependencies for OCR:
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-eng ghostscript
+```
+
+**macOS:**
+```bash
+brew install tesseract ghostscript
+```
+
+**Windows:**
+Download and install:
+- Tesseract: https://github.com/UB-Mannheim/tesseract/wiki
+- Ghostscript: https://www.ghostscript.com/download/gsdnld.html
+
 
 ```bash
 # Test imports

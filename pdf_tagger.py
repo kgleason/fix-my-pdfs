@@ -4,6 +4,7 @@
 """
 Core PDF tagging functionality.
 """
+import ocrmypdf
 import pdfplumber
 import pikepdf
 from pikepdf import Pdf, Dictionary, Name, Array
@@ -52,6 +53,51 @@ class PDFTagger:
             return False
         except Exception as e:
             self.log('error', f"Error checking text: {e}")
+            return False
+
+    def ocr_pdf(self, pdf_path: str, skip_text: bool = False) -> bool:
+        """Perform OCR on the PDF"""
+        try:
+            self.log('info', "Running OCR on PDF...")
+            ec = ocrmypdf.ocr(
+                input_file=pdf_path,
+                output_file=self.tmp_path,
+                skip_text=skip_text
+            )
+            ret_bool = ec == 0 if isinstance(ec, int) else ec
+            return ret_bool
+        except ocrmypdf.exceptions.ColorConversionNeededError:
+            self.log('info', "Color conversion needed, retrying...")
+            return self.ocr_pdf(pdf_path=pdf_path, skip_text=skip_text)
+        except ocrmypdf.MissingDependencyError as exc:
+            self.log('warning', f"Missing OCR dependency: {exc.message}")
+            return False
+        except ocrmypdf.UnsupportedImageFormatError:
+            self.log('warning', "Unsupported image format in PDF")
+            return False
+        except ocrmypdf.DpiError:
+            self.log('warning', "DPI error in PDF")
+            return False
+        except ocrmypdf.OutputFileAccessError:
+            self.log('warning', f"Unable to write OCR output file")
+            return False
+        except ocrmypdf.PriorOcrFoundError:
+            self.log('info', "Prior OCR detected. Running with skip_text option")
+            return self.ocr_pdf(pdf_path=pdf_path, skip_text=True)
+        except ocrmypdf.SubprocessOutputError:
+            self.log('warning', "OCR subprocess error")
+            return False
+        except (ocrmypdf.EncryptedPdfError, ocrmypdf.exceptions.DigitalSignatureError):
+            self.log('warning', "PDF is signed or encrypted - cannot OCR")
+            return False
+        except ocrmypdf.exceptions.BadArgsError:
+            self.log('warning', "Invalid OCR arguments")
+            return False
+        except ocrmypdf.exceptions.TaggedPDFError:
+            self.log('warning', "PDF is already tagged - skipping OCR")
+            return False
+        except Exception as e:
+            self.log('error', f"Unexpected OCR error: {str(e)}")
             return False
 
     def detect_lists(self, blocks: List[PDFBlock]) -> List[PDFBlock]:
@@ -302,13 +348,18 @@ class PDFTagger:
     def process(self) -> bool:
         """Main processing pipeline"""
         try:
-            # Check for text
+            # Check for extractable text
             has_text = self.has_extractable_text()
 
             if not has_text:
-                self.log('warning', "No extractable text found - OCR would be needed")
-                self.log('error', "OCR not implemented in this version")
-                return False
+                self.log('warning', "No extractable text found - running OCR")
+                is_processable = self.ocr_pdf(self.input_path)
+                if not is_processable:
+                    self.log('error', "OCR failed - cannot process PDF")
+                    return False
+                self.log('success', "OCR completed successfully")
+                # Use the OCR'd file as input
+                self.input_path = self.tmp_path
             else:
                 self.log('info', "PDF has extractable text")
 
@@ -335,5 +386,3 @@ class PDFTagger:
         finally:
             if self.pdf is not None:
                 self.pdf.close()
-
-
