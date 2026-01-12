@@ -85,17 +85,28 @@ def status(job_id):
 def download(job_id):
     """Download processed PDF"""
     if job_id not in processing_status:
+        print(f"Download error: Job {job_id} not found in processing_status")
+        print(f"Available jobs: {list(processing_status.keys())}")
         return jsonify({'error': 'Job not found'}), 404
 
     job = processing_status[job_id]
 
+    print(f"Download request for job {job_id}: status={job.status}, output_file={job.output_file}")
+
     if job.status != 'completed':
-        return jsonify({'error': 'Processing not complete'}), 400
+        print(f"Download error: Job status is {job.status}, not completed")
+        return jsonify({'error': f'Processing not complete. Status: {job.status}'}), 400
 
     output_file = job.output_file
-    if not output_file or not os.path.exists(output_file):
-        return jsonify({'error': 'Output file not found'}), 404
+    if not output_file:
+        print(f"Download error: No output file set for job {job_id}")
+        return jsonify({'error': 'Output file not set'}), 404
 
+    if not os.path.exists(output_file):
+        print(f"Download error: Output file does not exist: {output_file}")
+        return jsonify({'error': f'Output file not found: {output_file}'}), 404
+
+    print(f"Sending file: {output_file}")
     return send_file(
         output_file,
         as_attachment=True,
@@ -106,7 +117,11 @@ def download(job_id):
 @main_bp.route('/cleanup/<job_id>', methods=['POST'])
 def cleanup(job_id):
     """Clean up job files"""
+    print(f"Cleanup request for job {job_id}")
     if cleanup_job_files(job_id):
+        print(f"Cleanup successful for job {job_id}")
         return jsonify({'success': True})
     else:
+        print(f"Cleanup failed: Job {job_id} not found")
+        print(f"Available jobs: {list(processing_status.keys())}")
         return jsonify({'error': 'Job not found'}), 404

@@ -52,5 +52,3 @@ class JobStatus:
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
         return asdict(self)
-
-

@@ -34,11 +34,11 @@ COPY templates/ ./templates/
 RUN mkdir -p uploads outputs tmp
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8880
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8000/', timeout=5)" || exit 1
+  CMD python -c "import requests; requests.get('http://localhost:8880/', timeout=5)" || exit 1
 
 # Run gunicorn
 CMD ["gunicorn", "--config", "gunicorn_config.py", "app:app"]

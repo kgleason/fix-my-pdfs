@@ -20,10 +20,16 @@ processing_queues: Dict[str, queue.Queue] = {}
 def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_path: str, original_filename: str):
     """Background processing function for PDF tagging"""
     try:
+        print(f"[{job_id}] Starting background processing")
+        print(f"[{job_id}] Input: {input_path}")
+        print(f"[{job_id}] Output: {output_path}")
+        print(f"[{job_id}] Tmp: {tmp_path}")
+
         # Update status
         if job_id in processing_status:
             status = processing_status[job_id]
             status.status = 'processing'
+            print(f"[{job_id}] Status set to 'processing'")
 
         # Create tagger and set message queue
         tagger = PDFTagger(input_path, output_path, tmp_path, job_id, original_filename)
@@ -32,17 +38,26 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
             tagger.set_message_queue(processing_queues[job_id])
 
         # Process the PDF
+        print(f"[{job_id}] Calling tagger.process()")
         success = tagger.process()
+        print(f"[{job_id}] tagger.process() returned: {success}")
 
         # Update final status
         if job_id in processing_status:
             if success:
                 processing_status[job_id].status = 'completed'
                 processing_status[job_id].output_file = output_path
+                print(f"[{job_id}] Status set to 'completed', output_file: {output_path}")
+                print(f"[{job_id}] Output file exists: {os.path.exists(output_path)}")
             else:
                 processing_status[job_id].status = 'failed'
+                print(f"[{job_id}] Status set to 'failed'")
 
     except Exception as e:
+        print(f"[{job_id}] Exception in background processing: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
         if job_id in processing_status:
             processing_status[job_id].status = 'failed'
             processing_status[job_id].error = str(e)
@@ -115,7 +130,6 @@ def get_job_status(job_id: str) -> dict:
         'status': status.status,
         'filename': status.filename,
         'messages': messages,
-        'error': status.error
+        'error': status.error,
+        'output_file': status.output_file  # Add this for debugging
     }
-
-

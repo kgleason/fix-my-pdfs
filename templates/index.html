@@ -484,6 +484,7 @@
                         clearInterval(statusInterval);
                         progressFill.style.width = '100%';
                         downloadBtn.disabled = false;
+                        console.log('Job completed. Output file:', data.output_file);
                     } else if (data.status === 'failed') {
                         clearInterval(statusInterval);
                         showError(data.error || 'Processing failed');
@@ -492,7 +493,7 @@
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Error fetching status:', error);
                 });
         }
 
