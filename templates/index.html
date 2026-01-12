@@ -456,8 +456,12 @@
                 uploadSection.style.display = 'none';
                 processingSection.style.display = 'block';
 
-                updateStatus(data.job_id);
-                statusInterval = setInterval(() => updateStatus(data.job_id), 1000);
+                // Add a small delay before starting to poll status
+                // This ensures the backend has time to initialize the job
+                setTimeout(() => {
+                    updateStatus(data.job_id);
+                    statusInterval = setInterval(() => updateStatus(data.job_id), 1000);
+                }, 100);
             })
             .catch(error => {
                 console.error('Error:', error);
