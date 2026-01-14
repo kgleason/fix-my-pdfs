@@ -383,17 +383,13 @@
 
         // New file button
         newFileBtn.addEventListener('click', () => {
-            if (currentJobId) {
-                cleanup(currentJobId);
-            }
+            // Just reset UI - no cleanup needed
             resetUI();
         });
 
         // Download button
         downloadBtn.addEventListener('click', () => {
             if (currentJobId) {
-                const jobIdToCleanup = currentJobId;
-
                 // Create a hidden iframe to download without navigation
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
@@ -428,10 +424,7 @@
                     document.body.removeChild(iframe);
                 }, 3000);
 
-                // Clean up server files after download is complete (longer delay)
-                setTimeout(() => {
-                    cleanup(jobIdToCleanup);
-                }, 5000);
+                // No automatic server cleanup - files will be cleaned by cron
             }
         });
 
@@ -461,7 +454,7 @@
                 setTimeout(() => {
                     updateStatus(data.job_id);
                     statusInterval = setInterval(() => updateStatus(data.job_id), 1000);
-                }, 100);
+                }, 500);
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -520,12 +513,6 @@
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
-        }
-
-        function cleanup(jobId) {
-            fetch(`/cleanup/${jobId}`, {
-                method: 'POST'
-            }).catch(error => console.error('Cleanup error:', error));
         }
 
         function resetUI() {

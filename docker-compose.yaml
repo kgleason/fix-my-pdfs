@@ -11,7 +11,11 @@ services:
       - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
       - FLASK_ENV=production
     restart: unless-stopped
-
+  cron-service:
+    build:
+      context: .
+      dockerfile: cleanup.dockerfile
+    restart: unless-stopped
   #nginx:
   #  image: nginx:alpine
   #  ports:

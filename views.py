@@ -1,6 +1,3 @@
-# ============================================================================
-# views.py - Flask Routes and Views
-# ============================================================================
 """
 Flask routes for PDF processing application.
 """
@@ -8,16 +5,17 @@ from flask import Blueprint, render_template, request, send_file, jsonify, curre
 from werkzeug.utils import secure_filename
 import os
 import uuid
+import queue
 
 from models import JobStatus
 from utils import (
-    processing_status,
     processing_queues,
     start_processing_job,
     cleanup_job_files,
-    get_job_status
+    get_job_status,
+    save_job_status,
+    load_job_status
 )
-import queue
 
 main_bp = Blueprint('main', __name__)
 
@@ -54,17 +52,20 @@ def upload_file():
     # Save uploaded file
     file.save(input_path)
 
-    # Initialize job tracking
-    processing_status[job_id] = JobStatus(
+    # Initialize job tracking - save to file
+    job_status = JobStatus(
         job_id=job_id,
         filename=filename,
         status='queued',
         input_file=input_path,
         output_file=None
     )
+    save_job_status(job_id, job_status)
     processing_queues[job_id] = queue.Queue()
 
-    # Start background processing (pass original filename for title)
+    print(f"Job {job_id} initialized with status 'queued'")
+
+    # Start background processing AFTER job is fully set up
     start_processing_job(job_id, input_path, output_path, tmp_path, filename)
 
     return jsonify({'job_id': job_id, 'filename': filename})
@@ -84,12 +85,11 @@ def status(job_id):
 @main_bp.route('/download/<job_id>')
 def download(job_id):
     """Download processed PDF"""
-    if job_id not in processing_status:
-        print(f"Download error: Job {job_id} not found in processing_status")
-        print(f"Available jobs: {list(processing_status.keys())}")
-        return jsonify({'error': 'Job not found'}), 404
+    job = load_job_status(job_id)
 
-    job = processing_status[job_id]
+    if not job:
+        print(f"Download error: Job {job_id} not found")
+        return jsonify({'error': 'Job not found'}), 404
 
     print(f"Download request for job {job_id}: status={job.status}, output_file={job.output_file}")
 
@@ -123,5 +123,4 @@ def cleanup(job_id):
         return jsonify({'success': True})
     else:
         print(f"Cleanup failed: Job {job_id} not found")
-        print(f"Available jobs: {list(processing_status.keys())}")
         return jsonify({'error': 'Job not found'}), 404

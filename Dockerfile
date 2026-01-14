@@ -1,7 +1,7 @@
 # ============================================================================
 # Dockerfile - Docker Container (Optional)
 # ============================================================================
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 # Install system dependencies including Tesseract OCR
 RUN apt-get update && apt-get install -y \
@@ -31,7 +31,7 @@ COPY gunicorn_config.py .
 COPY templates/ ./templates/
 
 # Create necessary directories
-RUN mkdir -p uploads outputs tmp
+RUN mkdir -p uploads outputs tmp job_tracking
 
 # Expose port
 EXPOSE 8880

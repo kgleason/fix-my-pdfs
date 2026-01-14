@@ -7,14 +7,56 @@ Utility functions for PDF processing application.
 import os
 import threading
 import queue
+import json
 from typing import Dict
+from pathlib import Path
 
 from models import JobStatus, ProcessingMessage
 from pdf_tagger import PDFTagger
 
-# Global state management
-processing_status: Dict[str, JobStatus] = {}
+# Job tracking directory
+JOB_TRACKING_DIR = 'job_tracking'
+os.makedirs(JOB_TRACKING_DIR, exist_ok=True)
+
+# In-memory cache (per worker)
 processing_queues: Dict[str, queue.Queue] = {}
+
+
+def _get_job_file_path(job_id: str) -> str:
+    """Get the file path for a job's status"""
+    return os.path.join(JOB_TRACKING_DIR, f"{job_id}.json")
+
+
+def save_job_status(job_id: str, status: JobStatus):
+    """Save job status to file"""
+    job_file = _get_job_file_path(job_id)
+    with open(job_file, 'w') as f:
+        json.dump(status.to_dict(), f)
+
+
+def load_job_status(job_id: str) -> JobStatus:
+    """Load job status from file"""
+    job_file = _get_job_file_path(job_id)
+    if not os.path.exists(job_file):
+        return None
+
+    try:
+        with open(job_file, 'r') as f:
+            data = json.load(f)
+            return JobStatus(**data)
+    except Exception as e:
+        print(f"Error loading job status for {job_id}: {e}")
+        return None
+
+
+def delete_job_status(job_id: str):
+    """Delete job status file"""
+    job_file = _get_job_file_path(job_id)
+    if os.path.exists(job_file):
+        try:
+            os.remove(job_file)
+        except Exception as e:
+            print(f"Error deleting job status for {job_id}: {e}")
 
 
 def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_path: str, original_filename: str):
@@ -25,10 +67,11 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
         print(f"[{job_id}] Output: {output_path}")
         print(f"[{job_id}] Tmp: {tmp_path}")
 
-        # Update status
-        if job_id in processing_status:
-            status = processing_status[job_id]
+        # Update status to processing
+        status = load_job_status(job_id)
+        if status:
             status.status = 'processing'
+            save_job_status(job_id, status)
             print(f"[{job_id}] Status set to 'processing'")
 
         # Create tagger and set message queue
@@ -43,14 +86,17 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
         print(f"[{job_id}] tagger.process() returned: {success}")
 
         # Update final status
-        if job_id in processing_status:
+        status = load_job_status(job_id)
+        if status:
             if success:
-                processing_status[job_id].status = 'completed'
-                processing_status[job_id].output_file = output_path
+                status.status = 'completed'
+                status.output_file = output_path
+                save_job_status(job_id, status)
                 print(f"[{job_id}] Status set to 'completed', output_file: {output_path}")
                 print(f"[{job_id}] Output file exists: {os.path.exists(output_path)}")
             else:
-                processing_status[job_id].status = 'failed'
+                status.status = 'failed'
+                save_job_status(job_id, status)
                 print(f"[{job_id}] Status set to 'failed'")
 
     except Exception as e:
@@ -58,9 +104,11 @@ def process_pdf_background(job_id: str, input_path: str, output_path: str, tmp_p
         import traceback
         traceback.print_exc()
 
-        if job_id in processing_status:
-            processing_status[job_id].status = 'failed'
-            processing_status[job_id].error = str(e)
+        status = load_job_status(job_id)
+        if status:
+            status.status = 'failed'
+            status.error = str(e)
+            save_job_status(job_id, status)
 
         # Send error message to queue
         msg = ProcessingMessage(type='error', message=f"Fatal error: {str(e)}")
@@ -80,10 +128,9 @@ def start_processing_job(job_id: str, input_path: str, output_path: str, tmp_pat
 
 def cleanup_job_files(job_id: str) -> bool:
     """Clean up all files associated with a job"""
-    if job_id not in processing_status:
+    status = load_job_status(job_id)
+    if not status:
         return False
-
-    status = processing_status[job_id]
 
     # Delete input and output files
     for filepath in [status.input_file, status.output_file]:
@@ -102,8 +149,10 @@ def cleanup_job_files(job_id: str) -> bool:
         except Exception as e:
             print(f"Error removing temp file {tmp_path}: {e}")
 
-    # Remove from tracking
-    del processing_status[job_id]
+    # Remove job status file
+    delete_job_status(job_id)
+
+    # Remove from queue tracking
     if job_id in processing_queues:
         del processing_queues[job_id]
 
@@ -112,10 +161,9 @@ def cleanup_job_files(job_id: str) -> bool:
 
 def get_job_status(job_id: str) -> dict:
     """Get the current status of a job"""
-    if job_id not in processing_status:
+    status = load_job_status(job_id)
+    if not status:
         return None
-
-    status = processing_status[job_id]
 
     # Collect any queued messages
     messages = []
@@ -131,5 +179,5 @@ def get_job_status(job_id: str) -> dict:
         'filename': status.filename,
         'messages': messages,
         'error': status.error,
-        'output_file': status.output_file  # Add this for debugging
+        'output_file': status.output_file
     }
