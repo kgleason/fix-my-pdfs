@@ -29,6 +29,7 @@ COPY gunicorn_config.py .
 
 # Copy templates directory
 COPY templates/ ./templates/
+COPY static/ ./static/
 
 # Create necessary directories
 RUN mkdir -p uploads outputs tmp job_tracking
