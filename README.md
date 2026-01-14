@@ -8,19 +8,26 @@ This software DOES NOT create fully compliant PDFs. It is intended to take care 
 Ensure you have these files:
 ```
 pdf-tagger/
-├── app.py              # Main application entry point
-├── models.py           # Data models
-├── pdf_tagger.py       # Core PDF processing
-├── utils.py            # Utility functions
-├── views.py            # Flask routes
-├── requirements.txt    # Python dependencies
-├── gunicorn_config.py  # Gunicorn configuration
-├── Dockerfile          # Docker build instructions
-├── docker-compose.yml  # Docker Compose config
-├── .dockerignore       # Docker ignore patterns
-├── test_import.py      # Import test script
-└── templates/
-    └── index.html      # Frontend template
+├── src/
+│   └──app.py              # Main application entry point
+│   └──models.py           # Data models
+│   └──pdf_tagger.py       # Core PDF processing
+│   └──utils.py            # Utility functions
+│   └──views.py            # Flask routes
+│   └──gunicorn_config.py  # Gunicorn config file
+│   └──test_import.py      # Import test script
+├── requirements.txt       # Python dependencies
+├── Dockerfile             # Docker build instructions
+├── docker-compose.yml     # Docker Compose config
+├── .dockerignore          # Docker ignore patterns
+├── templates/
+│   └── index.html         # Clean HTML structure only
+└── static/
+    ├── css/
+    │   └── style.css      # All CSS styles
+    └── js/
+        └── app.js         # All JavaScript logic
+
 ```
 
 ## Pre-flight Check

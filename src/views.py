@@ -7,8 +7,8 @@ import os
 import uuid
 import queue
 
-from models import JobStatus
-from utils import (
+from src.models import JobStatus
+from src.utils import (
     processing_queues,
     start_processing_job,
     cleanup_job_files,

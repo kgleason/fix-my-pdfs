@@ -20,12 +20,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app.py .
-COPY models.py .
-COPY pdf_tagger.py .
-COPY utils.py .
-COPY views.py .
-COPY gunicorn_config.py .
+COPY src/app.py .
+COPY src/models.py .
+COPY src/pdf_tagger.py .
+COPY src/utils.py .
+COPY src/views.py .
+COPY src/gunicorn_config.py .
 
 # Copy templates directory
 COPY templates/ ./templates/

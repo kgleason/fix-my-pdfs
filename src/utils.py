@@ -142,7 +142,7 @@ def cleanup_job_files(job_id: str) -> bool:
 
     # Delete temp file
     tmp_filename = os.path.basename(status.input_file)
-    tmp_path = os.path.join('tmp', tmp_filename)
+    tmp_path = os.path.join('../tmp', tmp_filename)
     if os.path.exists(tmp_path):
         try:
             os.remove(tmp_path)
